@@ -14,10 +14,16 @@ use log::{info, debug};
 const GOOGLE_JSON: &'static str = "data/google-cloud-ranges.json";
 const AWS_JSON: &'static str = "data/aws-ranges.json";
 
+/**
+ * Get the `n`th field in `s`, using whitespace as a delimiter.
+ */
 fn get_field(s: &str, n: usize) -> Option<&str> {
     s.split_whitespace().nth(n)
 }
 
+/**
+ * Check if `log` is an sshd log.
+ */
 fn log_is_sshd(log: &str) -> bool {
     const SERVICE_IDX: usize = 4;
     get_field(log, SERVICE_IDX)
@@ -25,6 +31,18 @@ fn log_is_sshd(log: &str) -> bool {
         .unwrap_or(false)
 }
 
+/**
+ * Check if `log` is an sshd login failure.
+ */
+fn log_is_sshd_failure(log: &str) -> bool {
+    const MSG_START_IDX: usize = 5;
+    log_is_sshd(log) && get_field(log, MSG_START_IDX) == Some("Invalid")
+}
+
+/**
+ * Get all lines in file `path` that are sshd logs with a failed
+ * login attempt.
+ */
 fn get_matching_lines(path: &str) -> io::Result<Vec<String>> {
     let mut result: Vec<String> = Vec::new();
 
@@ -32,12 +50,10 @@ fn get_matching_lines(path: &str) -> io::Result<Vec<String>> {
     let reader = BufReader::new(file);
 
     for next in reader.lines() {
-        const MSG_START_IDX: usize = 5;
         let line = next?;
-
         debug!("Checking line: {}", line);
 
-        if log_is_sshd(&line) && get_field(&line, MSG_START_IDX) == Some("Invalid") {
+        if log_is_sshd_failure(&line) {
             debug!("Line added");
             result.push(line.clone())
         }
@@ -46,13 +62,21 @@ fn get_matching_lines(path: &str) -> io::Result<Vec<String>> {
     Ok(result)
 }
 
-fn extract_log_ip(log: &str) -> Option<Ipv4Addr> {
+/**
+ * Extract IP address from the sshd log, if present.
+ */
+fn extract_sshd_ip(log: &str) -> Option<Ipv4Addr> {
     const ADDR_IDX: usize = 9;
     get_field(&log, ADDR_IDX)?
         .parse()
         .ok()
 }
 
+/**
+ * Macro to generate a function $name that parses a JSON filled with IP range information
+ * into a list of IPv4 networks. JSON must have a "prefixes" field containing an array of
+ * objects, each with a member $ip_field containing an IPv4 subnet in CIDR notation.
+ */
 macro_rules! gen_json_parser {
     {$name: ident, $ip_field: literal} => {
         fn $name(path: &str) -> io::Result<Vec<Ipv4Net>> {
@@ -79,6 +103,9 @@ macro_rules! gen_json_parser {
 gen_json_parser!{parse_google_json, "ipv4Prefix"}
 gen_json_parser!{parse_aws_json, "ip_prefix"}
 
+/**
+ * Check if `addr` is in any of the networks from `nets`.
+ */
 fn addr_in_networks(addr: &Ipv4Addr, nets: &[Ipv4Net]) -> bool {
     nets.iter().any(|net| net.contains(addr))
 }
@@ -102,7 +129,7 @@ fn main() -> io::Result<()> {
         for line in get_matching_lines(&logfile)? {
             debug!("Processing line: {}", &line);
 
-            let addr = extract_log_ip(&line).expect("Failed to parse log IP");
+            let addr = extract_sshd_ip(&line).expect("Failed to parse log IP");
 
             if addr_in_networks(&addr, &google_nets) {
                 println!("Google address: {}", addr);
