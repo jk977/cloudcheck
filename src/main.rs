@@ -61,9 +61,8 @@ fn main() -> io::Result<()> {
         for event in get_sshd_failures(&logfile)? {
             debug!("Found event: {}", &event.log);
 
-            match get_address_host(&event.addr, &all_nets) {
-                Some(host) => println!("{} => {}", &event.addr, host),
-                _ => (),
+            if let Some(host) = get_address_host(&event.addr, &all_nets) {
+                println!("{} => {}", &event.addr, host);
             }
         }
     }
