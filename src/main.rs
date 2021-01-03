@@ -57,7 +57,7 @@ macro_rules! gen_json_parser {
             let json: serde_json::Value = serde_json::from_reader(file)?;
             let prefixes = json["prefixes"]
                 .as_array()
-                .expect("Unrecognized Google JSON format");
+                .expect("Unrecognized JSON format");
 
             let mut result: Vec<Ipv4Net> = Vec::new();
 
