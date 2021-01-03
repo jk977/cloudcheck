@@ -11,6 +11,9 @@ use std::net::Ipv4Addr;
 use ipnet::Ipv4Net;
 use log::{info, debug};
 
+const GOOGLE_JSON: &'static str = "data/google-cloud-ranges.json";
+const AWS_JSON: &'static str = "data/aws-ranges.json";
+
 fn get_field(s: &str, n: usize) -> Option<&str> {
     s.split_whitespace().nth(n)
 }
@@ -92,8 +95,8 @@ fn main() -> io::Result<()> {
     env_logger::init();
     info!("Starting program with name {}", program);
 
-    let google_nets = parse_google_json("data/google-cloud-ranges.json")?;
-    let aws_nets = parse_aws_json("data/aws-ranges.json")?;
+    let google_nets = parse_google_json(GOOGLE_JSON)?;
+    let aws_nets = parse_aws_json(AWS_JSON)?;
 
     for logfile in files {
         for line in get_matching_lines(&logfile)? {
