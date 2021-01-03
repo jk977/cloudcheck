@@ -76,14 +76,8 @@ macro_rules! gen_json_parser {
 gen_json_parser!{parse_google_json, "ipv4Prefix"}
 gen_json_parser!{parse_aws_json, "ip_prefix"}
 
-fn addr_in_networks(addr: &Ipv4Addr, networks: &[Ipv4Net]) -> bool {
-    for network in networks {
-        if network.contains(addr) {
-            return true;
-        }
-    }
-
-    false
+fn addr_in_networks(addr: &Ipv4Addr, nets: &[Ipv4Net]) -> bool {
+    nets.iter().any(|net| net.contains(addr))
 }
 
 fn main() -> io::Result<()> {
@@ -96,11 +90,10 @@ fn main() -> io::Result<()> {
     }
 
     env_logger::init();
-
     info!("Starting program with name {}", program);
 
-    let google_networks = parse_google_json("data/google-cloud-ranges.json")?;
-    let aws_networks = parse_aws_json("data/aws-ranges.json")?;
+    let google_nets = parse_google_json("data/google-cloud-ranges.json")?;
+    let aws_nets = parse_aws_json("data/aws-ranges.json")?;
 
     for logfile in files {
         for line in get_matching_lines(&logfile)? {
@@ -108,9 +101,9 @@ fn main() -> io::Result<()> {
 
             let addr = extract_log_ip(&line).expect("Failed to parse log IP");
 
-            if addr_in_networks(&addr, &google_networks) {
+            if addr_in_networks(&addr, &google_nets) {
                 println!("Google address: {}", addr);
-            } else if addr_in_networks(&addr, &aws_networks) {
+            } else if addr_in_networks(&addr, &aws_nets) {
                 println!("AWS address: {}", addr);
             }
         }
