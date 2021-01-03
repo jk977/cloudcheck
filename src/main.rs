@@ -13,7 +13,7 @@ use std::io::{self, BufRead, BufReader};
 use log::{info, debug};
 
 use sshd::SshdEvent;
-use hosts::{get_address_host, Host};
+use hosts::{parse_google_data, parse_aws_data, get_address_host};
 
 /**
  * Get all lines in file `path` that are sshd logs with a failed
@@ -43,6 +43,13 @@ fn main() -> io::Result<()> {
     let program = args.next().expect("Expected at least 1 argument");
     let files: Vec<String> = args.collect();
 
+    const GOOGLE_DATA: &str = "data/google-cloud-ranges.json";
+    const AWS_DATA: &str = "data/aws-ranges.json";
+
+    let google_net = parse_google_data(GOOGLE_DATA)?;
+    let aws_net = parse_aws_data(AWS_DATA)?;
+    let all_nets = [google_net, aws_net];
+
     if files.is_empty() {
         panic!("Must provide files to examine");
     }
@@ -54,9 +61,9 @@ fn main() -> io::Result<()> {
         for event in get_sshd_failures(&logfile)? {
             debug!("Found event: {}", &event.log);
 
-            match get_address_host(&event.addr) {
-                Host::Unknown => (),
-                t => println!("{} => {:?}", &event.addr, t),
+            match get_address_host(&event.addr, &all_nets) {
+                Some(host) => println!("{} => {}", &event.addr, host),
+                _ => (),
             }
         }
     }
