@@ -1,6 +1,6 @@
 extern crate log;
 extern crate env_logger;
-extern crate json;
+extern crate serde_json;
 
 use std::env;
 use std::fs::File;
