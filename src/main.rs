@@ -3,6 +3,8 @@ extern crate env_logger;
 extern crate ipnet;
 extern crate serde_json;
 
+mod sshd;
+
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
@@ -11,40 +13,17 @@ use std::net::Ipv4Addr;
 use ipnet::Ipv4Net;
 use log::{info, debug};
 
-const GOOGLE_JSON: &'static str = "data/google-cloud-ranges.json";
-const AWS_JSON: &'static str = "data/aws-ranges.json";
+use sshd::SshdEvent;
 
-/**
- * Get the `n`th field in `s`, using whitespace as a delimiter.
- */
-fn get_field(s: &str, n: usize) -> Option<&str> {
-    s.split_whitespace().nth(n)
-}
-
-/**
- * Check if `log` is an sshd log.
- */
-fn log_is_sshd(log: &str) -> bool {
-    const SERVICE_IDX: usize = 4;
-    get_field(log, SERVICE_IDX)
-        .map(|s| s.starts_with("sshd["))
-        .unwrap_or(false)
-}
-
-/**
- * Check if `log` is an sshd login failure.
- */
-fn log_is_sshd_failure(log: &str) -> bool {
-    const MSG_START_IDX: usize = 5;
-    log_is_sshd(log) && get_field(log, MSG_START_IDX) == Some("Invalid")
-}
+const GOOGLE_JSON: &str = "data/google-cloud-ranges.json";
+const AWS_JSON: &str = "data/aws-ranges.json";
 
 /**
  * Get all lines in file `path` that are sshd logs with a failed
  * login attempt.
  */
-fn get_matching_lines(path: &str) -> io::Result<Vec<String>> {
-    let mut result: Vec<String> = Vec::new();
+fn get_sshd_failures(path: &str) -> io::Result<Vec<SshdEvent>> {
+    let mut result: Vec<SshdEvent> = Vec::new();
 
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -53,23 +32,13 @@ fn get_matching_lines(path: &str) -> io::Result<Vec<String>> {
         let line = next?;
         debug!("Checking line: {}", line);
 
-        if log_is_sshd_failure(&line) {
+        if let Ok(event) = line.parse() {
             debug!("Line added");
-            result.push(line.clone())
+            result.push(event)
         }
     }
 
     Ok(result)
-}
-
-/**
- * Extract IP address from the sshd log, if present.
- */
-fn extract_sshd_ip(log: &str) -> Option<Ipv4Addr> {
-    const ADDR_IDX: usize = 9;
-    get_field(&log, ADDR_IDX)?
-        .parse()
-        .ok()
 }
 
 /**
@@ -126,15 +95,13 @@ fn main() -> io::Result<()> {
     let aws_nets = parse_aws_json(AWS_JSON)?;
 
     for logfile in files {
-        for line in get_matching_lines(&logfile)? {
-            debug!("Processing line: {}", &line);
+        for event in get_sshd_failures(&logfile)? {
+            debug!("Found event: {}", &event.log);
 
-            let addr = extract_sshd_ip(&line).expect("Failed to parse log IP");
-
-            if addr_in_networks(&addr, &google_nets) {
-                println!("Google address: {}", addr);
-            } else if addr_in_networks(&addr, &aws_nets) {
-                println!("AWS address: {}", addr);
+            if addr_in_networks(&event.addr, &google_nets) {
+                println!("Google address: {}", &event.addr);
+            } else if addr_in_networks(&event.addr, &aws_nets) {
+                println!("AWS address: {}", &event.addr);
             }
         }
     }
