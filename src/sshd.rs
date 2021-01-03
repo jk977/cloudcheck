@@ -27,12 +27,12 @@ fn parse_field<T: FromStr>(s: &str, n: usize) -> Result<T, LogError> {
 }
 
 /**
- * Check if the `n`th field in `s` passes the predicate `f`.
+ * Apply `predicate` to the `n`th whitespace-separated field in `s`.
  */
-fn check_field<F>(s: &str, n: usize, f: F) -> bool
+fn check_field<F>(s: &str, n: usize, predicate: F) -> bool
     where F: Fn(&str) -> bool
 {
-    get_field(s, n).map(f).unwrap_or(false)
+    get_field(s, n).map(predicate).unwrap_or(false)
 }
 
 /**

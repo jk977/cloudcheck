@@ -4,7 +4,7 @@ extern crate ipnet;
 extern crate serde_json;
 
 mod sshd;
-mod hosts;
+mod netdata;
 
 use std::env;
 use std::fs::File;
@@ -13,7 +13,7 @@ use std::io::{self, BufRead, BufReader};
 use log::{info, debug};
 
 use sshd::SshdEvent;
-use hosts::{parse_google_data, parse_aws_data, get_address_host};
+use netdata::{parse_google_data, parse_aws_data, get_address_host};
 
 /**
  * Get all lines in file `path` that are sshd logs with a failed
