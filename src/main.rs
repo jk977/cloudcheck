@@ -99,8 +99,8 @@ fn main() -> io::Result<()> {
 
     info!("Starting program with name {}", program);
 
-    let google_networks = parse_google_json("../data/google-cloud-ranges.json")?;
-    let aws_networks = parse_aws_json("../data/aws-ranges.json")?;
+    let google_networks = parse_google_json("data/google-cloud-ranges.json")?;
+    let aws_networks = parse_aws_json("data/aws-ranges.json")?;
 
     for logfile in files {
         for line in get_matching_lines(&logfile)? {
