@@ -1,8 +1,8 @@
-# SSHD Failcheck
+# Cloudcheck
 
 ## About
 
-This work-in-progress project analyzes `/var/log` files for SSHD authentication failures by IP addresses that are owned by major hosting companies (currently Amazon and Google). In the future, it will aggregate logs for each company to allow the reporting process to be partially automated.
+This work-in-progress project checks IP addresses against known networks that are owned by major cloud hosting companies. The intended use case for this is to make it easier to report malicious activity hosted on cloud services.
 
 ## IP Address Range Sources
 
