@@ -1,71 +1,52 @@
-extern crate log;
-extern crate env_logger;
-extern crate ipnet;
-extern crate serde_json;
+mod hosts;
 
-mod sshd;
-mod netdata;
+use clap::{clap_app, App, AppSettings};
+use std::io;
 
-use std::env;
-use std::fs::File;
-use std::io::{self, BufRead, BufReader};
-
-use log::{info, debug};
-
-use sshd::SshdEvent;
-use netdata::{parse_google_data, parse_aws_data, get_address_host};
-
-/**
- * Get all lines in file `path` that are sshd logs with a failed
- * login attempt.
- */
-fn get_sshd_failures(path: &str) -> io::Result<Vec<SshdEvent>> {
-    let mut result: Vec<SshdEvent> = Vec::new();
-
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-
-    for next in reader.lines() {
-        let line = next?;
-        debug!("Checking line: {}", line);
-
-        if let Ok(event) = line.parse() {
-            debug!("Line added");
-            result.push(event)
-        }
+macro_rules! die {
+    ($($t:tt)+) => {
+        eprintln!($($t)+);
+        std::process::exit(1);
     }
+}
 
-    Ok(result)
+fn build_clap_app() -> App<'static, 'static> {
+    clap_app!(cloudcheck =>
+        (author: "jk977")
+        (about: "Checks IP addresses against ranges owned by various cloud hosts")
+        (version: "0.1.0")
+        (setting: AppSettings::SubcommandRequiredElseHelp)
+        (@subcommand update =>
+            (about: "Updates the IP ranges used for each host")
+        )
+        (@subcommand check =>
+            (setting: AppSettings::TrailingVarArg)
+            (about: "Checks the given IP address(es) against known host ranges")
+            (@arg ADDRESSES: +required +multiple "The address(es) to check")
+        )
+    )
+}
+
+fn update_cache() -> io::Result<()> {
+    unimplemented!()
+}
+
+fn check_addresses<'a, T: Iterator<Item = &'a str>>(_addrs: T) -> io::Result<()> {
+    unimplemented!()
 }
 
 fn main() -> io::Result<()> {
-    let mut args = env::args();
-    let program = args.next().expect("Expected at least 1 argument");
-    let files: Vec<String> = args.collect();
+    let matches = build_clap_app().get_matches();
 
-    const GOOGLE_DATA: &str = "data/google-cloud-ranges.json";
-    const AWS_DATA: &str = "data/aws-ranges.json";
-
-    let google_net = parse_google_data(GOOGLE_DATA)?;
-    let aws_net = parse_aws_data(AWS_DATA)?;
-    let all_nets = [google_net, aws_net];
-
-    if files.is_empty() {
-        panic!("Must provide files to examine");
-    }
-
-    env_logger::init();
-    info!("Starting program with name {}", program);
-
-    for logfile in files {
-        for event in get_sshd_failures(&logfile)? {
-            debug!("Found event: {}", &event.log);
-
-            if let Some(host) = get_address_host(&event.addr, &all_nets) {
-                println!("{} => {}", &event.addr, host);
-            }
+    if matches.subcommand_matches("update").is_some() {
+        update_cache()
+    } else if let Some(matches) = matches.subcommand_matches("check") {
+        if let Some(addresses) = matches.values_of("ADDRESSES") {
+            check_addresses(addresses)
+        } else {
+            die!("Missing IP addresses to check");
         }
+    } else {
+        unreachable!("Failed to cover all subcommands, or Clap is improperly configured")
     }
-
-    Ok(())
 }
