@@ -1,7 +1,8 @@
-mod hosts;
+mod data;
 
-use clap::{clap_app, App, AppSettings};
 use std::io;
+use clap::{clap_app, App, AppSettings};
+use data::HostDatabase;
 
 macro_rules! die {
     ($($t:tt)+) => {
@@ -31,8 +32,19 @@ fn update_cache() -> io::Result<()> {
     unimplemented!()
 }
 
-fn check_addresses<'a, T: Iterator<Item = &'a str>>(_addrs: T) -> io::Result<()> {
-    unimplemented!()
+fn check_addresses<'a, T: Iterator<Item = &'a str>>(args: T) -> io::Result<()> {
+    let db = HostDatabase::with_default_hosts()?;
+
+    for arg in args {
+        let addr = arg
+            .parse()
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid Ipv4Addr"))?;
+        if let Some(hostname) = db.get_address_host(addr) {
+            println!("{}: {}", addr, hostname);
+        }
+    }
+
+    Ok(())
 }
 
 fn main() -> io::Result<()> {
