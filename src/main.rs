@@ -1,9 +1,11 @@
 mod data;
 
-use std::io;
+use std::{
+    fs::File,
+    io::{self, BufRead, BufReader},
+};
 use clap::{clap_app, App, AppSettings};
 use data::HostDatabase;
-use std::io::BufRead;
 
 fn build_clap_app() -> App<'static, 'static> {
     clap_app!(cloudcheck =>
@@ -33,10 +35,6 @@ fn build_clap_app() -> App<'static, 'static> {
     )
 }
 
-fn update_cache() -> io::Result<()> {
-    unimplemented!()
-}
-
 fn check_address(arg: &str, db: &HostDatabase) -> io::Result<()> {
     let addr = arg
         .parse()
@@ -49,33 +47,47 @@ fn check_address(arg: &str, db: &HostDatabase) -> io::Result<()> {
     Ok(())
 }
 
+fn check_reader_addresses<R: BufRead>(reader: &mut R, db: &HostDatabase) -> io::Result<()> {
+    for line in reader.lines() {
+        let arg = &line?;
+        check_address(arg, &db)?;
+    }
+
+    Ok(())
+}
+
+fn check_subcmd(matches: &clap::ArgMatches) -> io::Result<()> {
+    let db = HostDatabase::with_default_hosts()?;
+
+    if let Some(args) = matches.values_of("ADDRESS") {
+        for arg in args {
+            check_address(arg, &db)?;
+        }
+    } else if let Some(paths) = matches.values_of("INPUT_FILE") {
+        for path in paths {
+            let mut handle = BufReader::new(File::open(path)?);
+            check_reader_addresses(&mut handle, &db)?;
+        }
+    } else {
+        let stdin = io::stdin();
+        let mut handle = stdin.lock();
+        check_reader_addresses(&mut handle, &db)?;
+    }
+
+    Ok(())
+}
+
+fn update_subcmd(_matches: &clap::ArgMatches) -> io::Result<()> {
+    unimplemented!()
+}
+
 fn main() -> io::Result<()> {
     let matches = build_clap_app().get_matches();
 
-    if matches.subcommand_matches("update").is_some() {
-        update_cache()
-    } else if let Some(matches) = matches.subcommand_matches("check") {
-        let db = HostDatabase::with_default_hosts()?;
-
-        if let Some(args) = matches.values_of("ADDRESS") {
-            for arg in args {
-                check_address(arg, &db)?;
-            }
-
-            Ok(())
-        } else if let Some(files) = matches.values_of("INPUT_FILE") {
-            unimplemented!()
-        } else {
-            let stdin = io::stdin();
-            let mut handle = stdin.lock();
-
-            for line in handle.lines() {
-                let arg = &line?;
-                check_address(arg, &db)?;
-            }
-
-            Ok(())
-        }
+    if let Some(matches) = matches.subcommand_matches("check") {
+        check_subcmd(matches)
+    } else if let Some(matches) = matches.subcommand_matches("update") {
+        update_subcmd(matches)
     } else {
         unreachable!("Failed to cover all subcommands, or Clap is improperly configured")
     }
