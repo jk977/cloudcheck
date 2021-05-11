@@ -6,7 +6,6 @@ use std::{
 use ipnet::Ipv4Net;
 
 struct HostJson<'a> {
-    source_uri: &'a str,
     hostname: &'a str,
     path: &'a str,
     array_pointer: &'a str,
@@ -15,14 +14,12 @@ struct HostJson<'a> {
 
 impl<'a> HostJson<'a> {
     const fn new(
-        source_uri: &'a str,
         hostname: &'a str,
         path: &'a str,
         array_pointer: &'a str,
         field: &'a str
     ) -> Self {
         Self {
-            source_uri,
             hostname,
             path,
             array_pointer,
@@ -44,14 +41,12 @@ pub struct HostDatabase {
 impl HostDatabase {
     const DEFAULTS: [HostJson<'static>; 2] = [
         HostJson::new(
-            "https://www.gstatic.com/ipranges/cloud.json",
             "Google Cloud",
             "data/google-cloud-ranges.json",
             "/prefixes",
             "ipv4Prefix",
         ),
         HostJson::new(
-            "https://ip-ranges.amazonaws.com/ip-ranges.json",
             "Amazon Web Services",
             "data/aws-ranges.json",
             "/prefixes",
@@ -59,7 +54,7 @@ impl HostDatabase {
         ),
     ];
 
-    fn from_jsons(host_jsons: &[HostJson]) -> io::Result<Self> {
+    pub fn from_jsons(host_jsons: &[HostJson]) -> io::Result<Self> {
         let mut result = Self {
             hosts: Vec::with_capacity(host_jsons.len()),
         };
