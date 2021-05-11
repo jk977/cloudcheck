@@ -5,7 +5,7 @@ use std::{
 
 use ipnet::Ipv4Net;
 
-struct HostJson<'a> {
+pub struct HostJson<'a> {
     hostname: &'a str,
     path: &'a str,
     array_pointer: &'a str,
@@ -30,7 +30,6 @@ impl<'a> HostJson<'a> {
 
 struct HostNetwork {
     name: String,
-    source_uri: String,
     subnets: Vec<Ipv4Net>,
 }
 
@@ -62,7 +61,6 @@ impl HostDatabase {
         for json in host_jsons {
             let current = HostNetwork {
                 name: json.hostname.to_owned(),
-                source_uri: json.source_uri.to_owned(),
                 subnets: extract_from_json(json)?,
             };
 
