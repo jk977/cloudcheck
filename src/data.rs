@@ -1,7 +1,4 @@
-use std::{
-    fs, io, str,
-    net::Ipv4Addr,
-};
+use std::{fs, io, net::Ipv4Addr, str};
 
 use ipnet::Ipv4Net;
 
@@ -13,17 +10,17 @@ pub struct HostJson<'a> {
 }
 
 impl<'a> HostJson<'a> {
-    const fn new(
+    pub const fn new(
         hostname: &'a str,
         path: &'a str,
         array_pointer: &'a str,
-        field: &'a str
+        field: &'a str,
     ) -> Self {
         Self {
             hostname,
             path,
             array_pointer,
-            field
+            field,
         }
     }
 }
@@ -76,7 +73,13 @@ impl HostDatabase {
 
     pub fn get_host(&self, addr: Ipv4Addr) -> Option<&str> {
         for host in self.hosts.iter() {
-            if host.subnets.iter().find(|subnet| subnet.contains(&addr)).is_some() {
+            let has_addr = host
+                .subnets
+                .iter()
+                .find(|subnet| subnet.contains(&addr))
+                .is_some();
+
+            if has_addr {
                 return Some(&host.name);
             }
         }
@@ -86,26 +89,20 @@ impl HostDatabase {
 }
 
 fn extract_from_json<T: str::FromStr>(host_json: &HostJson) -> io::Result<Vec<T>> {
-    macro_rules! make_io_err {
-        ($kind:ident, $($err:tt)+) => {
-            std::io::Error::new(std::io::ErrorKind::$kind, $($err)+)
-        }
-    }
-
     let raw_json = fs::read_to_string(host_json.path)?;
     let json: serde_json::Value = serde_json::from_str(&raw_json)?;
     let prefixes = json
         .pointer(host_json.array_pointer)
         .map(serde_json::Value::as_array)
         .flatten()
-        .ok_or_else(|| make_io_err!(InvalidData, "Invalid JSON format"))?;
+        .ok_or_else(|| make_io_err!(InvalidData, "Invalid JSON format: {}", host_json.path))?;
     let mut subnets: Vec<T> = Vec::new();
 
     for info in prefixes {
         if let Some(prefix) = info[host_json.field].as_str() {
             let subnet = prefix
                 .parse()
-                .map_err(|_| make_io_err!(InvalidData, "Invalid Ipv4Net format"))?;
+                .map_err(|_| make_io_err!(InvalidData, "Invalid Ipv4Net format: {}", prefix))?;
             subnets.push(subnet);
         }
     }
