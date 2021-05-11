@@ -3,13 +3,7 @@ mod data;
 use std::io;
 use clap::{clap_app, App, AppSettings};
 use data::HostDatabase;
-
-macro_rules! die {
-    ($($t:tt)+) => {
-        eprintln!($($t)+);
-        std::process::exit(1);
-    }
-}
+use std::io::BufRead;
 
 fn build_clap_app() -> App<'static, 'static> {
     clap_app!(cloudcheck =>
@@ -21,9 +15,20 @@ fn build_clap_app() -> App<'static, 'static> {
             (about: "Updates the IP ranges used for each host")
         )
         (@subcommand check =>
-            (setting: AppSettings::TrailingVarArg)
-            (about: "Checks the given IP address(es) against known host ranges")
-            (@arg ADDRESSES: +required +multiple "The address(es) to check")
+            (about:
+                concat!(
+                    "Checks the given IPv4 address(es) against known host ranges. If none are ",
+                    "provided, addresses are read from standard input.",
+                )
+            )
+            (@arg INPUT_FILE:
+                -f --files +takes_value +multiple
+                "Files to check, with one IP address per line"
+            )
+            (@arg ADDRESS:
+                -a --addresses +takes_value +multiple
+                "IP addresses to check"
+            )
         )
     )
 }
@@ -32,16 +37,13 @@ fn update_cache() -> io::Result<()> {
     unimplemented!()
 }
 
-fn check_addresses<'a, T: Iterator<Item = &'a str>>(args: T) -> io::Result<()> {
-    let db = HostDatabase::with_default_hosts()?;
+fn check_address(arg: &str, db: &HostDatabase) -> io::Result<()> {
+    let addr = arg
+        .parse()
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid Ipv4Addr"))?;
 
-    for arg in args {
-        let addr = arg
-            .parse()
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid Ipv4Addr"))?;
-        if let Some(hostname) = db.get_address_host(addr) {
-            println!("{}: {}", addr, hostname);
-        }
+    if let Some(hostname) = db.get_address_host(addr) {
+        println!("{}: {}", addr, hostname);
     }
 
     Ok(())
@@ -53,10 +55,26 @@ fn main() -> io::Result<()> {
     if matches.subcommand_matches("update").is_some() {
         update_cache()
     } else if let Some(matches) = matches.subcommand_matches("check") {
-        if let Some(addresses) = matches.values_of("ADDRESSES") {
-            check_addresses(addresses)
+        let db = HostDatabase::with_default_hosts()?;
+
+        if let Some(args) = matches.values_of("ADDRESS") {
+            for arg in args {
+                check_address(arg, &db)?;
+            }
+
+            Ok(())
+        } else if let Some(files) = matches.values_of("INPUT_FILE") {
+            unimplemented!()
         } else {
-            die!("Missing IP addresses to check");
+            let stdin = io::stdin();
+            let mut handle = stdin.lock();
+
+            for line in handle.lines() {
+                let arg = &line?;
+                check_address(arg, &db)?;
+            }
+
+            Ok(())
         }
     } else {
         unreachable!("Failed to cover all subcommands, or Clap is improperly configured")
