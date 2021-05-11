@@ -81,7 +81,7 @@ impl HostDatabase {
         Self::from_jsons(&Self::DEFAULTS)
     }
 
-    pub fn get_address_host(&self, addr: Ipv4Addr) -> Option<&str> {
+    pub fn get_host(&self, addr: Ipv4Addr) -> Option<&str> {
         for host in self.hosts.iter() {
             if host.subnets.iter().find(|subnet| subnet.contains(&addr)).is_some() {
                 return Some(&host.name);

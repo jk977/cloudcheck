@@ -40,7 +40,7 @@ fn check_address(arg: &str, db: &HostDatabase) -> io::Result<()> {
         .parse()
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid Ipv4Addr"))?;
 
-    if let Some(hostname) = db.get_address_host(addr) {
+    if let Some(hostname) = db.get_host(addr) {
         println!("{}: {}", addr, hostname);
     }
 
