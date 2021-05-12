@@ -1,0 +1,2 @@
+Google Cloud,data/google-cloud-ranges.json,/prefixes,ipv4Prefix
+Amazon Web Services,data/aws-ranges.json,/prefixes,ip_prefix
